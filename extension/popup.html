@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="popup.css"><title>WebVerse</title></head>
+<body>
+  <header><span>◎</span><div><strong>WEBVERSE</strong><small>VISIT SYNC</small></div></header>
+  <main>
+    <div id="status" class="status"><i></i><span>상태 확인 중...</span></div>
+    <section id="connectPanel">
+      <h1>우주 연결</h1><p>WebVerse 설정에서 만든 연결 코드를 입력하세요.</p>
+      <input id="code" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off">
+      <button id="connect">연결하기</button>
+    </section>
+    <section id="syncPanel" hidden>
+      <div class="metric"><span>오늘 기록</span><strong id="syncedToday">0</strong></div>
+      <div class="metric"><span>전송 대기</span><strong id="pending">0</strong></div>
+      <label class="toggle"><span>자동 동기화</span><input id="enabled" type="checkbox"><i></i></label>
+      <button id="syncNow">지금 동기화</button>
+      <button id="disconnect" class="ghost">연결 해제</button>
+    </section>
+    <details><summary>개발 서버 설정</summary><label>API 주소<input id="apiUrl" value="http://localhost:4000/api"></label><button id="saveApi" class="ghost">주소 저장</button></details>
+    <p id="message" role="status"></p>
+  </main>
+  <footer>전체 URL·검색어·페이지 제목은 저장하지 않습니다.</footer>
+  <script src="popup.js"></script>
+</body></html>

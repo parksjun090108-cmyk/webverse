@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#050712" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="description" content="인터넷을 우주처럼 탐험하는 개인 인터넷 시각화 플랫폼" />
+    <style>
+      html, body, #root { width: 100%; min-height: 100%; margin: 0; background: #03050d; color-scheme: dark; }
+      body { overflow: hidden; }
+      .boot-screen { position: fixed; inset: 0; display: grid; place-items: center; background: radial-gradient(circle at 50% 42%, #151832, #03050d 52%); color: #8f98b2; font: 600 11px "Segoe UI", sans-serif; letter-spacing: .18em; }
+      .boot-screen::before { content: ""; position: absolute; width: 42px; height: 42px; border: 1px solid rgba(164,147,255,.2); border-top-color: #a996ff; border-radius: 50%; animation: boot-spin 1s linear infinite; transform: translateY(-30px); }
+      @keyframes boot-spin { to { transform: translateY(-30px) rotate(360deg); } }
+    </style>
+    <title>WebVerse — My Internet Universe</title>
+  </head>
+  <body>
+    <div id="root"><div class="boot-screen">WEBVERSE</div></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,4 @@
+1. Double-click start-webverse.cmd in this folder.
+2. Keep the black terminal window open.
+3. Open http://localhost:4173 in a browser.
+4. Press Ctrl+C in the terminal to stop.

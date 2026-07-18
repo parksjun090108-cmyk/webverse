@@ -1,0 +1,10 @@
+{
+  "manifest_version": 3,
+  "name": "WebVerse Visit Sync",
+  "version": "1.0.0",
+  "description": "방문한 사이트의 도메인과 시각을 WebVerse 우주에 동기화합니다.",
+  "permissions": ["history", "storage", "alarms"],
+  "host_permissions": ["http://localhost:4000/*", "https://*/*"],
+  "background": { "service_worker": "background.js" },
+  "action": { "default_popup": "popup.html", "default_title": "WebVerse" }
+}

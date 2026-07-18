@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: webverse-api
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm run deploy:build:server
+    initialDeployHook: pnpm run db:seed:prod
+    startCommand: pnpm run db:migrate:prod && pnpm run start:server
+    healthCheckPath: /api/ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: WEB_ORIGIN
+        sync: false

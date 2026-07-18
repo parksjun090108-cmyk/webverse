@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id             String          @id @default(cuid())
+  nickname       String
+  email          String          @unique
+  passwordHash   String
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  userSites      UserSite[]
+  histories      History[]
+  discoveries    SiteDiscovery[]
+  constellations Constellation[]
+  createdSites   Site[]          @relation("CreatedSites")
+  extensionPairing ExtensionPairing?
+  extensionSessions ExtensionSession[]
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String
+  anchorX   Float
+  anchorY   Float
+  anchorZ   Float
+  sites     Site[]
+  createdAt DateTime @default(now())
+}
+
+model Site {
+  id               String              @id @default(cuid())
+  name             String
+  domain           String              @unique
+  normalizedUrl    String              @unique
+  faviconUrl       String?
+  description      String?
+  themeColor       String              @default("#8992aa")
+  status           String              @default("PENDING")
+  verified         Boolean             @default(false)
+  categoryId       String?
+  category         Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  createdById      String?
+  createdBy        User?               @relation("CreatedSites", fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  userSites        UserSite[]
+  histories        History[]
+  discoveries      SiteDiscovery[]
+  constellationMap ConstellationSite[]
+  constellationEdgesFrom ConstellationEdge[] @relation("ConstellationEdgeFrom")
+  constellationEdgesTo   ConstellationEdge[] @relation("ConstellationEdgeTo")
+  approvalRequest  ApprovalRequest?
+
+  @@index([status])
+  @@index([categoryId])
+}
+
+model UserSite {
+  userId       String
+  siteId       String
+  visitCount   Int      @default(0)
+  favorite     Boolean  @default(false)
+  positionX    Float    @default(0)
+  positionY    Float    @default(0)
+  positionZ    Float    @default(0)
+  lastVisit    DateTime @default(now())
+  discoveredAt DateTime @default(now())
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site          Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@id([userId, siteId])
+  @@index([userId, lastVisit])
+}
+
+model SiteDiscovery {
+  userId      String
+  siteId      String
+  discoveredAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@id([userId, siteId])
+  @@index([siteId])
+}
+
+model History {
+  id        String   @id @default(cuid())
+  userId    String
+  siteId    String
+  action    String
+  sessionId String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site      Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([userId, sessionId])
+}
+
+model Constellation {
+  id              String              @id @default(cuid())
+  userId          String
+  name            String
+  patternKey      String
+  strength        Int                 @default(1)
+  occurrenceCount Int                 @default(3)
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sites           ConstellationSite[]
+  edges           ConstellationEdge[]
+
+  @@unique([userId, patternKey])
+}
+
+model ConstellationSite {
+  constellationId String
+  siteId           String
+  sequence         Int
+  constellation    Constellation @relation(fields: [constellationId], references: [id], onDelete: Cascade)
+  site             Site          @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@id([constellationId, sequence])
+  @@index([siteId])
+}
+
+model ConstellationEdge {
+  constellationId String
+  fromSiteId       String
+  toSiteId         String
+  count            Int           @default(3)
+  constellation    Constellation @relation(fields: [constellationId], references: [id], onDelete: Cascade)
+  fromSite         Site          @relation("ConstellationEdgeFrom", fields: [fromSiteId], references: [id], onDelete: Cascade)
+  toSite           Site          @relation("ConstellationEdgeTo", fields: [toSiteId], references: [id], onDelete: Cascade)
+
+  @@id([constellationId, fromSiteId, toSiteId])
+  @@index([fromSiteId])
+  @@index([toSiteId])
+}
+
+model ApprovalRequest {
+  id          String   @id @default(cuid())
+  siteId      String   @unique
+  status      String   @default("REQUESTED")
+  requestedAt DateTime @default(now())
+  resolvedAt  DateTime?
+  site        Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+}
+
+model ExtensionPairing {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  codeHash  String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model ExtensionSession {
+  id         String                @id @default(cuid())
+  userId     String
+  tokenHash  String                @unique
+  deviceName String
+  createdAt  DateTime              @default(now())
+  lastSeenAt DateTime?
+  revokedAt  DateTime?
+  user       User                  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  events     ExtensionVisitEvent[]
+
+  @@index([userId, revokedAt])
+}
+
+model ExtensionVisitEvent {
+  id         String           @id
+  sessionId  String
+  domain     String
+  visitedAt  DateTime
+  accepted   Boolean
+  createdAt  DateTime         @default(now())
+  session    ExtensionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@index([sessionId, visitedAt])
+}
