@@ -6,7 +6,12 @@ const sqlite = await readFile(path.join(root, 'prisma/schema.prisma'), 'utf8')
 const postgres = await readFile(path.join(root, 'prisma/schema.postgresql.prisma'), 'utf8')
 const migration = await readFile(path.join(root, 'prisma/migrations/20260718000000_init_postgresql/migration.sql'), 'utf8')
 
-const normalize = (schema: string) => schema.replace(/provider\s*=\s*"(?:sqlite|postgresql)"/, 'provider = "DATABASE"').replace(/\r\n/g, '\n').trim()
+const normalize = (schema: string) => schema
+  .replace(/provider\s*=\s*"(?:sqlite|postgresql)"/, 'provider = "DATABASE"')
+  .replace(/url\s*=\s*env\("DATABASE_URL"\)/, 'url = env("DATABASE_URL")')
+  .replace(/\s*directUrl\s*=\s*env\("DIRECT_URL"\)/, '')
+  .replace(/\r\n/g, '\n')
+  .trim()
 if (normalize(sqlite) !== normalize(postgres)) throw new Error('SQLite와 PostgreSQL Prisma 모델 구조가 서로 다릅니다.')
 
 const models = [...postgres.matchAll(/^model\s+(\w+)\s*\{/gm)].map((match) => match[1])
