@@ -4,8 +4,7 @@ services:
     runtime: node
     plan: free
     buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm run deploy:build:server
-    initialDeployHook: pnpm run db:seed:prod
-    startCommand: pnpm run db:migrate:prod && pnpm run start:server
+    startCommand: pnpm run deploy:start
     healthCheckPath: /api/ready
     autoDeployTrigger: checksPass
     envVars:

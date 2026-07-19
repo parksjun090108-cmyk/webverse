@@ -26,6 +26,7 @@
     "db:migrate:prod": "prisma migrate deploy --schema prisma/schema.postgresql.prisma",
     "db:seed:prod": "tsx prisma/seed.ts",
     "deploy:build:server": "pnpm run db:generate:prod && pnpm run build:server",
+    "deploy:start": "pnpm run db:migrate:prod && pnpm run db:seed:prod && pnpm run start:server",
     "test:metadata": "tsx server/services/siteMetadata.test.ts",
     "test:display": "tsx src/engine/DisplayEngine.test.ts",
     "test:universe": "tsx src/engine/UniverseEngine.test.ts",

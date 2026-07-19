@@ -18,13 +18,18 @@ export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [deletePassword, setDeletePassword] = useState('')
+  const [deletePasswordReady, setDeletePasswordReady] = useState(false)
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null)
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null)
 
-  useEffect(() => setNickname(user?.nickname ?? ''), [user])
+  useEffect(() => {
+    setNickname(user?.nickname ?? '')
+    setDeletePassword('')
+    setDeletePasswordReady(false)
+  }, [user])
   useEffect(() => {
     if (!user) return
     void onGetExtensionStatus().then(setExtensionStatus).catch(() => undefined)
@@ -78,7 +83,7 @@ export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword
       <article className="settings-card danger-card glass-panel">
         <div className="settings-card-title"><span><Trash2 size={18} /></span><div><h2>회원 탈퇴</h2><p>모든 개인 데이터가 복구할 수 없게 삭제됩니다.</p></div></div>
         <ul><li>내 우주의 모든 사이트</li><li>방문 기록과 즐겨찾기</li><li>생성된 별자리와 개인 설정</li></ul>
-        <label><span>확인을 위해 비밀번호 입력</span><input type="password" value={deletePassword} onChange={(event) => setDeletePassword(event.target.value)} /></label>
+        <label><span>확인을 위해 비밀번호 입력</span><input type="password" name="webverse-delete-account-confirmation" autoComplete="new-password" data-1p-ignore="true" data-lpignore="true" readOnly={!deletePasswordReady} value={deletePassword} onFocus={() => setDeletePasswordReady(true)} onChange={(event) => setDeletePassword(event.target.value)} /></label>
         <button className="delete-account" disabled={busy || !deletePassword} onClick={deleteAccount}><Trash2 size={14} /> 계정과 데이터 영구 삭제</button>
       </article>
     </div>
