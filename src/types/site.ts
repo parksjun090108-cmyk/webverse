@@ -29,6 +29,8 @@ export type Site = {
   color: string
   status: SiteStatus
   faviconUrl?: string | null
+  reviewStatus?: 'REQUESTED' | 'APPROVED' | 'REJECTED' | null
+  rejectionReason?: string | null
 }
 
 export type CelestialStage =

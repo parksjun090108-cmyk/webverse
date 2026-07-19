@@ -33,7 +33,8 @@
     "test:layout": "tsx src/engine/LayoutEngine.test.ts",
     "test:visuals": "tsx src/engine/CelestialVisualEngine.test.ts",
     "test:api": "tsx server/tests/api.integration.test.ts",
-    "test": "tsx server/services/siteMetadata.test.ts && tsx src/engine/UniverseEngine.test.ts && tsx src/engine/LayoutEngine.test.ts && tsx src/engine/CelestialVisualEngine.test.ts && tsx src/engine/DisplayEngine.test.ts && tsx server/tests/api.integration.test.ts",
+    "test:admin": "tsx server/tests/admin.integration.test.ts",
+    "test": "tsx server/services/siteMetadata.test.ts && tsx src/engine/UniverseEngine.test.ts && tsx src/engine/LayoutEngine.test.ts && tsx src/engine/CelestialVisualEngine.test.ts && tsx src/engine/DisplayEngine.test.ts && tsx server/tests/api.integration.test.ts && tsx server/tests/admin.integration.test.ts",
     "check": "pnpm test && pnpm db:validate && tsc -p server/tsconfig.json && tsc -b && vite build"
   },
   "dependencies": {

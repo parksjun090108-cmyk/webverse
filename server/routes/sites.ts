@@ -38,7 +38,14 @@ sitesRouter.get('/mine', async (request, response, next) => {
   try {
     const userSites = await prisma.userSite.findMany({
       where: { userId: request.userId! },
-      include: { site: { include: { category: true } } },
+      include: {
+        site: {
+          include: {
+            category: true,
+            approvalRequest: { select: { status: true, resolutionNote: true, resolvedAt: true } },
+          },
+        },
+      },
       orderBy: [{ favorite: 'desc' }, { lastVisit: 'desc' }],
     })
     response.json({ userSites })

@@ -1,10 +1,17 @@
-import { readFile } from 'node:fs/promises'
+import { readdir, readFile } from 'node:fs/promises'
 import path from 'node:path'
 
 const root = path.resolve(import.meta.dirname, '..')
 const sqlite = await readFile(path.join(root, 'prisma/schema.prisma'), 'utf8')
 const postgres = await readFile(path.join(root, 'prisma/schema.postgresql.prisma'), 'utf8')
-const migration = await readFile(path.join(root, 'prisma/migrations/20260718000000_init_postgresql/migration.sql'), 'utf8')
+const migrationsRoot = path.join(root, 'prisma/migrations')
+const migrationDirectories = (await readdir(migrationsRoot, { withFileTypes: true }))
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => entry.name)
+  .sort()
+const migration = (await Promise.all(migrationDirectories.map((directory) =>
+  readFile(path.join(migrationsRoot, directory, 'migration.sql'), 'utf8'),
+))).join('\n')
 
 const normalize = (schema: string) => schema
   .replace(/provider\s*=\s*"(?:sqlite|postgresql)"/, 'provider = "DATABASE"')

@@ -357,7 +357,10 @@ export default function App() {
           </div>
           <p className="eyebrow">{selected.category}</p>
           <h2>{selected.name}</h2>
-          <p className="domain">{selected.domain} · {selected.status === 'APPROVED' ? '공식 사이트' : '승인 대기'}</p>
+          <p className={`domain site-review-status status-${selected.status.toLowerCase()}`}>{selected.domain} · {siteStatusLabel(selected.status)}</p>
+          {selected.status === 'REJECTED_PRIVATE' && selected.rejectionReason && (
+            <div className="rejection-reason" role="note"><span>거절 사유</span><p>{selected.rejectionReason}</p></div>
+          )}
           <div className="stat-grid">
             <div><span>방문</span><strong>{selected.visitCount.toLocaleString()}회</strong></div>
             <div><span>성장 단계</span><strong>{getCelestialStage(selected.visitCount)}</strong></div>
@@ -417,7 +420,16 @@ function mapUserSite(entry: ApiUserSite): Site {
     color: entry.site.category?.color ?? entry.site.themeColor,
     status: entry.site.status as Site['status'],
     faviconUrl: entry.site.faviconUrl,
+    reviewStatus: entry.site.approvalRequest?.status ?? null,
+    rejectionReason: entry.site.approvalRequest?.status === 'REJECTED' ? entry.site.approvalRequest.resolutionNote : null,
   }
+}
+
+function siteStatusLabel(status: Site['status']) {
+  if (status === 'APPROVED') return '공식 사이트'
+  if (status === 'REVIEW_REQUESTED') return '관리자 검토 중'
+  if (status === 'REJECTED_PRIVATE') return '등록 거절'
+  return '신청 접수'
 }
 
 function mapCatalogSite(site: ApiSite): CatalogSite {

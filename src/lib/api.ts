@@ -75,6 +75,11 @@ export type ApiSite = {
   themeColor: string
   status: string
   category: { name: string; color: string } | null
+  approvalRequest?: {
+    status: 'REQUESTED' | 'APPROVED' | 'REJECTED'
+    resolutionNote: string | null
+    resolvedAt: string | null
+  } | null
 }
 
 export type ApiUserSite = {

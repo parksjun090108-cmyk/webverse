@@ -14,6 +14,7 @@ import { logger } from './lib/logger.js'
 import { createRateLimiter } from './lib/rateLimit.js'
 import { securityHeaders } from './lib/security.js'
 import { extensionRouter } from './routes/extension.js'
+import { adminRouter } from './routes/admin.js'
 
 export function createApp() {
   const app = express()
@@ -36,7 +37,7 @@ export function createApp() {
     next()
   })
   app.use(securityHeaders)
-  const allowedOrigins = env.WEB_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
+  const allowedOrigins = env.WEB_ORIGIN.split(',').map((origin) => origin.trim().replace(/\/+$/, '')).filter(Boolean)
   app.use(cors({
     origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
     credentials: false,
@@ -61,6 +62,7 @@ export function createApp() {
   app.use('/api/constellations', constellationsRouter)
   app.use('/api/users', usersRouter)
   app.use('/api/extension', extensionRouter)
+  app.use('/api/admin', adminRouter)
   app.use((request, response) => response.status(404).json({ message: '요청한 API를 찾을 수 없습니다.', requestId: request.requestId }))
 
   const errorHandler: ErrorRequestHandler = (error, request, response, _next) => {

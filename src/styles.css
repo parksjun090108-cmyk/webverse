@@ -65,6 +65,7 @@ button:focus-visible, input:focus-visible, [tabindex="0"]:focus-visible { outlin
 .eyebrow { margin: 0 0 9px; color: var(--accent); }
 .detail-panel h2 { margin: 0; font-size: 28px; letter-spacing: -.035em; }
 .domain { margin: 5px 0 24px; color: var(--muted); font-size: 12px; }
+.site-review-status.status-pending { color: #d0aa68; }.site-review-status.status-review_requested { color: #b7a4ff; }.site-review-status.status-rejected_private { color: #ef8798; }.rejection-reason { margin: -12px 0 18px; padding: 11px 12px; border: 1px solid rgba(255,91,112,.22); border-radius: 10px; background: rgba(255,70,95,.07); }.rejection-reason span { display: block; margin-bottom: 5px; color: #ef8798; font-size: 9px; font-weight: 700; }.rejection-reason p { margin: 0; color: #b9a1a8; font-size: 10px; line-height: 1.6; overflow-wrap: anywhere; }
 .stat-grid { display: grid; grid-template-columns: 1fr 1fr; border-top: 1px solid var(--line); border-left: 1px solid var(--line); }
 .stat-grid div { min-height: 75px; padding: 14px 12px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); display: flex; flex-direction: column; gap: 8px; }
 .stat-grid span { color: #6f7a97; font-size: 9px; }

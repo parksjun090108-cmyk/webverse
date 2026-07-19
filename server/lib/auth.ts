@@ -11,7 +11,7 @@ export function requireAuth(request: Request, response: Response, next: NextFunc
   if (!token) return response.status(401).json({ message: '로그인이 필요합니다.', requestId: request.requestId })
   try {
     const payload = jwt.verify(token, env.JWT_SECRET)
-    if (typeof payload === 'string' || !payload.sub) throw new Error('Invalid token')
+    if (typeof payload === 'string' || !payload.sub || payload.scope === 'admin') throw new Error('Invalid token')
     request.userId = String(payload.sub)
     next()
   } catch {
