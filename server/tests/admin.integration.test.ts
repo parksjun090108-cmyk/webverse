@@ -7,7 +7,7 @@ import { prisma } from '../lib/prisma.js'
 
 const stamp = Date.now()
 const adminEmail = `admin-${stamp}@webverse.test`
-const adminPassword = 'Admin-test-password-123!'
+const adminPassword = 'short'
 const userEmail = `admin-flow-user-${stamp}@webverse.test`
 const approvedDomain = `approved-${stamp}.example.com`
 const rejectedDomain = `rejected-${stamp}.example.com`
@@ -56,7 +56,7 @@ try {
   })
   approvedSiteId = approvedSite.id
   const discoveryUsers = [user]
-  for (let index = 0; index < 4; index += 1) {
+  for (let index = 0; index < 2; index += 1) {
     discoveryUsers.push(await prisma.user.create({
       data: {
         nickname: `Discoverer ${index + 2}`,
@@ -69,11 +69,11 @@ try {
   for (let index = 0; index < discoveryUsers.length; index += 1) {
     const discovered = await userRequest(`/sites/${approvedSite.id}/discover`, createToken(discoveryUsers[index]!.id), { method: 'POST' })
     assert.equal(discovered.status, 201)
-    const expectedStatus = index === 4 ? 'REVIEW_REQUESTED' : 'PENDING'
+    const expectedStatus = index === 2 ? 'REVIEW_REQUESTED' : 'PENDING'
     assert.equal(discovered.body.site.status, expectedStatus)
   }
   const approvedRequest = await prisma.approvalRequest.findUniqueOrThrow({ where: { siteId: approvedSite.id } })
-  assert.equal(await prisma.siteDiscovery.count({ where: { siteId: approvedSite.id } }), 5)
+  assert.equal(await prisma.siteDiscovery.count({ where: { siteId: approvedSite.id } }), 3)
 
   const rejectedSite = await prisma.site.create({
     data: { name: 'Reject Candidate', domain: rejectedDomain, normalizedUrl: `https://${rejectedDomain}`, status: 'REVIEW_REQUESTED', createdById: user.id },

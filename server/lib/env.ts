@@ -15,7 +15,7 @@ const schema = z.object({
   JWT_SECRET: z.string().min(24).default('webverse-local-development-secret'),
   ADMIN_JWT_SECRET: z.string().min(24).optional(),
   ADMIN_EMAIL: z.string().trim().toLowerCase().email().optional(),
-  ADMIN_PASSWORD: z.string().min(12).max(72).optional(),
+  ADMIN_PASSWORD: z.string().min(1).optional(),
   ADMIN_NAME: z.string().trim().min(2).max(40).default('WebVerse Admin'),
   WEB_ORIGIN: originsSchema,
 }).superRefine((value, context) => {

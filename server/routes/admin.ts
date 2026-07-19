@@ -31,7 +31,7 @@ adminRouter.post('/auth/login', adminLoginLimiter, async (request, response, nex
   try {
     const input = z.object({
       email: z.string().trim().toLowerCase().email(),
-      password: z.string().min(1).max(72),
+      password: z.string().min(1),
     }).parse(request.body)
     const admin = await prisma.admin.findUnique({ where: { email: input.email } })
     if (!admin || !admin.active || !(await bcrypt.compare(input.password, admin.passwordHash))) {
@@ -61,8 +61,8 @@ adminRouter.get('/me', async (request, response, next) => {
 adminRouter.patch('/me/password', async (request, response, next) => {
   try {
     const input = z.object({
-      currentPassword: z.string().min(1).max(72),
-      newPassword: z.string().min(12).max(72),
+      currentPassword: z.string().min(1),
+      newPassword: z.string().min(1),
     }).parse(request.body)
     const admin = await prisma.admin.findUniqueOrThrow({ where: { id: request.adminId! } })
     if (!(await bcrypt.compare(input.currentPassword, admin.passwordHash))) {

@@ -6,7 +6,7 @@ The future admin frontend must call the existing WebVerse API. It must never con
 
 - `ADMIN_JWT_SECRET`: separate long random secret for administrator sessions
 - `ADMIN_EMAIL`: email used to create the first administrator
-- `ADMIN_PASSWORD`: initial administrator password (12-72 characters)
+- `ADMIN_PASSWORD`: initial administrator password (must not be empty)
 - `ADMIN_NAME`: display name for the first administrator
 - `WEB_ORIGIN`: comma-separated WebVerse and admin frontend origins
 

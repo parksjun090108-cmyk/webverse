@@ -26,7 +26,6 @@ async function main() {
   if (Boolean(adminEmail) !== Boolean(adminPassword)) throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set together.')
   let adminCreated = false
   if (adminEmail && adminPassword) {
-    if (adminPassword.length < 12 || adminPassword.length > 72) throw new Error('ADMIN_PASSWORD must be between 12 and 72 characters.')
     const existing = await prisma.admin.findUnique({ where: { email: adminEmail } })
     if (existing) {
       await prisma.admin.update({ where: { id: existing.id }, data: { name: process.env.ADMIN_NAME?.trim() || existing.name } })

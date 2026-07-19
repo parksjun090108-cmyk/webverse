@@ -133,7 +133,7 @@ async function discover(userId: string, siteId: string) {
     const historyExists = await database.history.findFirst({ where: { userId, siteId, action: 'DISCOVER' } })
     if (!historyExists) await database.history.create({ data: { userId, siteId, action: 'DISCOVER' } })
     const discoveryCount = await database.siteDiscovery.count({ where: { siteId } })
-    if (discoveryCount >= 5) {
+    if (discoveryCount >= 3) {
       const site = await database.site.findUniqueOrThrow({ where: { id: siteId } })
       if (site.status === 'PENDING') {
         await database.site.update({ where: { id: siteId }, data: { status: 'REVIEW_REQUESTED' } })
