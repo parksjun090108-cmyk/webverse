@@ -6,7 +6,7 @@ services:
     buildCommand: corepack enable && pnpm install --frozen-lockfile --prod=false && pnpm run deploy:build:server
     startCommand: pnpm run deploy:start
     healthCheckPath: /api/ready
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: commit
     envVars:
       - key: NODE_ENV
         value: production

@@ -9,9 +9,11 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:admin": "pnpm --dir admin run dev",
     "dev:server": "tsx watch server/index.ts",
     "start:server": "node dist-server/index.js",
     "build": "tsc -b && vite build",
+    "build:admin": "pnpm --dir admin run build",
     "build:server": "tsc -p server/tsconfig.json",
     "preview": "vite preview",
     "db:generate": "prisma generate",
