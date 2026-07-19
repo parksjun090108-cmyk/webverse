@@ -47,7 +47,6 @@ export function RequestsPage({ token, overview, categories, onDataChanged }: Pro
       <article><span className="metric-icon waiting"><Clock3 size={19} /></span><div><small>검토 대기</small><strong>{overview?.requests.requested ?? '-'}</strong><p>관리자 결정 필요</p></div></article>
       <article><span className="metric-icon approved"><CheckCircle2 size={19} /></span><div><small>승인 완료</small><strong>{overview?.requests.approved ?? '-'}</strong><p>공식 사이트 등록</p></div></article>
       <article><span className="metric-icon rejected"><XCircle size={19} /></span><div><small>거절 완료</small><strong>{overview?.requests.rejected ?? '-'}</strong><p>개인 우주에서만 유지</p></div></article>
-      <article><span className="metric-icon pending"><Users size={19} /></span><div><small>검토 중 사이트</small><strong>{overview?.sites.reviewRequested ?? '-'}</strong><p>신청자 수와 함께 표시</p></div></article>
     </div>
 
     <div className="request-panel">
