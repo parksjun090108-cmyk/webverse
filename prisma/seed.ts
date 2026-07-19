@@ -21,6 +21,22 @@ async function main() {
       where: { domain: site.domain }, update: data, create: data,
     })
   }
+
+  const legacyPendingSites = await prisma.site.findMany({
+    where: { status: 'PENDING', discoveries: { some: {} } },
+    select: { id: true, discoveries: { orderBy: { discoveredAt: 'asc' }, take: 1, select: { discoveredAt: true } } },
+  })
+  for (const site of legacyPendingSites) {
+    await prisma.$transaction([
+      prisma.site.update({ where: { id: site.id }, data: { status: 'REVIEW_REQUESTED' } }),
+      prisma.approvalRequest.upsert({
+        where: { siteId: site.id },
+        update: {},
+        create: { siteId: site.id, requestedAt: site.discoveries[0]?.discoveredAt ?? new Date() },
+      }),
+    ])
+  }
+
   const adminEmail = process.env.ADMIN_EMAIL?.trim().toLowerCase()
   const adminPassword = process.env.ADMIN_PASSWORD
   if (Boolean(adminEmail) !== Boolean(adminPassword)) throw new Error('ADMIN_EMAIL and ADMIN_PASSWORD must be set together.')
@@ -40,7 +56,7 @@ async function main() {
       adminCreated = true
     }
   }
-  console.log(`Seeded ${CATEGORY_DEFINITIONS.length} categories and ${OFFICIAL_SITES.length} official sites.${adminCreated ? ' Created the initial admin account.' : ''}`)
+  console.log(`Seeded ${CATEGORY_DEFINITIONS.length} categories and ${OFFICIAL_SITES.length} official sites. Queued ${legacyPendingSites.length} pending sites for review.${adminCreated ? ' Created the initial admin account.' : ''}`)
 }
 
 main().finally(() => prisma.$disconnect())

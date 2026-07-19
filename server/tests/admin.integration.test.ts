@@ -69,8 +69,10 @@ try {
   for (let index = 0; index < discoveryUsers.length; index += 1) {
     const discovered = await userRequest(`/sites/${approvedSite.id}/discover`, createToken(discoveryUsers[index]!.id), { method: 'POST' })
     assert.equal(discovered.status, 201)
-    const expectedStatus = index === 2 ? 'REVIEW_REQUESTED' : 'PENDING'
-    assert.equal(discovered.body.site.status, expectedStatus)
+    assert.equal(discovered.body.site.status, 'REVIEW_REQUESTED')
+    if (index === 0) {
+      assert.ok(await prisma.approvalRequest.findUnique({ where: { siteId: approvedSite.id } }))
+    }
   }
   const approvedRequest = await prisma.approvalRequest.findUniqueOrThrow({ where: { siteId: approvedSite.id } })
   assert.equal(await prisma.siteDiscovery.count({ where: { siteId: approvedSite.id } }), 3)

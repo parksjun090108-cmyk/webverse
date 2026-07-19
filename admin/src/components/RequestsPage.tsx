@@ -47,14 +47,14 @@ export function RequestsPage({ token, overview, categories, onDataChanged }: Pro
       <article><span className="metric-icon waiting"><Clock3 size={19} /></span><div><small>검토 대기</small><strong>{overview?.requests.requested ?? '-'}</strong><p>관리자 결정 필요</p></div></article>
       <article><span className="metric-icon approved"><CheckCircle2 size={19} /></span><div><small>승인 완료</small><strong>{overview?.requests.approved ?? '-'}</strong><p>공식 사이트 등록</p></div></article>
       <article><span className="metric-icon rejected"><XCircle size={19} /></span><div><small>거절 완료</small><strong>{overview?.requests.rejected ?? '-'}</strong><p>개인 우주에서만 유지</p></div></article>
-      <article><span className="metric-icon pending"><Users size={19} /></span><div><small>발견자 모집 중</small><strong>{overview?.sites.pending ?? '-'}</strong><p>5명 도달 전</p></div></article>
+      <article><span className="metric-icon pending"><Users size={19} /></span><div><small>검토 중 사이트</small><strong>{overview?.sites.reviewRequested ?? '-'}</strong><p>신청자 수와 함께 표시</p></div></article>
     </div>
 
     <div className="request-panel">
       <div className="request-tabs">{tabs.map((tab) => <button key={tab.status} className={status === tab.status ? 'active' : ''} onClick={() => changeStatus(tab.status)}>{tab.label}<span>{tab.status === 'REQUESTED' ? overview?.requests.requested : tab.status === 'APPROVED' ? overview?.requests.approved : overview?.requests.rejected}</span></button>)}</div>
       {error && <div className="panel-error">{error}<button onClick={() => void load()}>다시 시도</button></div>}
       {loading ? <div className="panel-loading"><LoaderCircle className="spin" size={24} /><p>요청을 불러오는 중...</p></div> : items.length === 0 ? <div className="empty-state"><SearchX size={31} /><h3>{statusLabel(status)} 요청이 없습니다.</h3><p>새로운 요청이 들어오면 이곳에 표시됩니다.</p></div> : <div className="request-table">
-        <div className="table-head"><span>사이트</span><span>발견 현황</span><span>요청 시각</span><span>상태</span><span /></div>
+        <div className="table-head"><span>사이트</span><span>신청자 수</span><span>요청 시각</span><span>상태</span><span /></div>
         {items.map((item) => <button className="request-row" key={item.id} onClick={() => setSelected(item)}>
           <span className="site-cell"><i style={{ '--site-color': item.site.themeColor } as React.CSSProperties}><Globe2 size={17} /></i><span><strong>{item.site.name}</strong><small>{item.site.domain}</small></span></span>
           <span className="discoveries"><Users size={14} /> {item.site._count.discoveries}명</span>
