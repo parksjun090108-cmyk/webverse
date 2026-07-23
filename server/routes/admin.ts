@@ -78,14 +78,15 @@ adminRouter.patch('/me/password', async (request, response, next) => {
 
 adminRouter.get('/overview', async (_request, response, next) => {
   try {
-    const [requested, approved, rejected, pendingSites, reviewRequestedSites] = await Promise.all([
+    const [requested, approved, rejected, pendingSites, reviewRequestedSites, openUniverseReports] = await Promise.all([
       prisma.approvalRequest.count({ where: { status: 'REQUESTED' } }),
       prisma.approvalRequest.count({ where: { status: 'APPROVED' } }),
       prisma.approvalRequest.count({ where: { status: 'REJECTED' } }),
       prisma.site.count({ where: { status: 'PENDING' } }),
       prisma.site.count({ where: { status: 'REVIEW_REQUESTED' } }),
+      prisma.universeReport.count({ where: { status: 'OPEN' } }),
     ])
-    response.json({ requests: { requested, approved, rejected }, sites: { pending: pendingSites, reviewRequested: reviewRequestedSites } })
+    response.json({ requests: { requested, approved, rejected }, sites: { pending: pendingSites, reviewRequested: reviewRequestedSites }, universeReports: { open: openUniverseReports } })
   } catch (error) { next(error) }
 })
 
@@ -220,6 +221,60 @@ adminRouter.get('/audit-logs', async (request, response, next) => {
     ])
     const totalPages = Math.max(1, Math.ceil(total / query.limit))
     response.json({ logs, pagination: { page: query.page, limit: query.limit, total, totalPages, hasNext: query.page < totalPages } })
+  } catch (error) { next(error) }
+})
+
+adminRouter.get('/universe-reports', async (request, response, next) => {
+  try {
+    const query = paginationSchema.extend({ status: z.enum(['OPEN', 'RESOLVED', 'DISMISSED']).default('OPEN') }).parse(request.query)
+    const [reports, total] = await Promise.all([
+      prisma.universeReport.findMany({
+        where: { status: query.status },
+        include: {
+          reporter: { select: { id: true, nickname: true } },
+          target: { select: { id: true, nickname: true, publicSlug: true, universeVisibility: true, universeHiddenAt: true, universeHiddenReason: true } },
+          resolvedBy: { select: { id: true, name: true } },
+        },
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        skip: (query.page - 1) * query.limit, take: query.limit,
+      }),
+      prisma.universeReport.count({ where: { status: query.status } }),
+    ])
+    const totalPages = Math.max(1, Math.ceil(total / query.limit))
+    response.json({ reports, pagination: { page: query.page, limit: query.limit, total, totalPages, hasNext: query.page < totalPages } })
+  } catch (error) { next(error) }
+})
+
+adminRouter.post('/universe-reports/:reportId/hide', async (request, response, next) => {
+  try {
+    const input = z.object({ reason: z.string().trim().min(2).max(300) }).parse(request.body)
+    const report = await prisma.universeReport.findUnique({ where: { id: request.params.reportId }, select: { id: true, targetUserId: true, status: true } })
+    if (!report) return response.status(404).json({ message: '우주 신고를 찾을 수 없습니다.' })
+    if (report.status !== 'OPEN') return response.status(409).json({ message: '이미 처리된 신고입니다.' })
+    const resolvedAt = new Date()
+    await prisma.$transaction([
+      prisma.user.update({ where: { id: report.targetUserId }, data: { universeVisibility: 'PRIVATE', universeHiddenAt: resolvedAt, universeHiddenReason: input.reason } }),
+      prisma.universeReport.updateMany({ where: { targetUserId: report.targetUserId, status: 'OPEN' }, data: { status: 'RESOLVED', resolvedAt, resolvedById: request.adminId! } }),
+      prisma.adminAuditLog.create({
+        data: { adminId: request.adminId!, action: 'UNIVERSE_HIDDEN', targetType: 'USER', targetId: report.targetUserId, details: JSON.stringify({ reportId: report.id, reason: input.reason }) },
+      }),
+    ])
+    response.status(204).end()
+  } catch (error) { next(error) }
+})
+
+adminRouter.post('/universe-reports/:reportId/dismiss', async (request, response, next) => {
+  try {
+    const report = await prisma.universeReport.findUnique({ where: { id: request.params.reportId }, select: { id: true, targetUserId: true, status: true } })
+    if (!report) return response.status(404).json({ message: '우주 신고를 찾을 수 없습니다.' })
+    if (report.status !== 'OPEN') return response.status(409).json({ message: '이미 처리된 신고입니다.' })
+    await prisma.$transaction([
+      prisma.universeReport.update({ where: { id: report.id }, data: { status: 'DISMISSED', resolvedAt: new Date(), resolvedById: request.adminId! } }),
+      prisma.adminAuditLog.create({
+        data: { adminId: request.adminId!, action: 'UNIVERSE_REPORT_DISMISSED', targetType: 'USER', targetId: report.targetUserId, details: JSON.stringify({ reportId: report.id }) },
+      }),
+    ])
+    response.status(204).end()
   } catch (error) { next(error) }
 })
 

@@ -1,12 +1,12 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { BarChart3, Compass, Heart, LogIn, LogOut, Orbit, Search, Settings2, Sparkles, Trash2, X } from 'lucide-react'
+import { BarChart3, Compass, Heart, LogIn, LogOut, Orbit, Search, Send, Settings2, Sparkles, Telescope, Trash2, X } from 'lucide-react'
 import { demoSites } from './data/demoSites'
 import type { Site } from './types/site'
 import { getActivityBrightness, getCelestialStage, registerVisit } from './engine/UniverseEngine'
 import { layoutSites } from './engine/LayoutEngine'
 import { catalogSites, type CatalogSite } from './data/catalogSites'
 import { AuthPage } from './components/Auth/AuthPage'
-import { api, type ApiSite, type ApiUserSite, type SessionUser } from './lib/api'
+import { api, type ApiSite, type ApiUserSite, type PublicUniverse, type SessionUser } from './lib/api'
 import type { Category } from './types/site'
 import type { ConstellationView } from './types/constellation'
 import type { ApiConstellation } from './lib/api'
@@ -20,12 +20,14 @@ const NebulaPage = lazy(() => import('./components/Nebula/NebulaPage').then((mod
 const StatsPage = lazy(() => import('./components/Stats/StatsPage').then((module) => ({ default: module.StatsPage })))
 const ConstellationsPage = lazy(() => import('./components/Constellations/ConstellationsPage').then((module) => ({ default: module.ConstellationsPage })))
 const SettingsPage = lazy(() => import('./components/Settings/SettingsPage').then((module) => ({ default: module.SettingsPage })))
+const GalaxyPage = lazy(() => import('./components/Galaxy/GalaxyPage').then((module) => ({ default: module.GalaxyPage })))
+const SharedUniverseView = lazy(() => import('./components/Galaxy/GalaxyPage').then((module) => ({ default: module.SharedUniverseView })))
 
 export default function App() {
   const [sites, setSites] = useState(demoSites)
   const [selected, setSelected] = useState<Site | null>(demoSites[0])
   const [query, setQuery] = useState('')
-  const [page, setPage] = useState<'universe' | 'nebula' | 'stats' | 'constellations' | 'settings'>('universe')
+  const [page, setPage] = useState<'universe' | 'nebula' | 'stats' | 'constellations' | 'galaxy' | 'settings'>('universe')
   const [mode, setMode] = useState<'account' | 'guest' | null>(null)
   const [token, setToken] = useState<string | null>(null)
   const [user, setUser] = useState<SessionUser | null>(null)
@@ -42,6 +44,20 @@ export default function App() {
   const busyRef = useRef(new Set<string>())
   const activeUserIdRef = useRef<string | null>(null)
   const universeSearchRef = useRef<HTMLInputElement | null>(null)
+  const publicSlug = useMemo(() => window.location.pathname.match(/^\/universe\/([A-Za-z0-9_-]{8,64})\/?$/)?.[1] ?? null, [])
+  const [publicUniverse, setPublicUniverse] = useState<PublicUniverse | null>(null)
+  const [publicUniverseError, setPublicUniverseError] = useState('')
+
+  useEffect(() => {
+    void api.wake()
+  }, [])
+
+  useEffect(() => {
+    if (!publicSlug) return
+    void api.publicUniverse(publicSlug)
+      .then((result) => setPublicUniverse(result.universe))
+      .catch((reason) => setPublicUniverseError(reason instanceof Error ? reason.message : '공개 우주를 불러오지 못했습니다.'))
+  }, [publicSlug])
 
   useEffect(() => {
     const savedToken = localStorage.getItem('webverse-token')
@@ -211,7 +227,7 @@ export default function App() {
     }])
   }
 
-  const addPendingUrl = async (value: string) => {
+  const addCustomUrl = async (value: string) => {
     try {
       const parsed = new URL(value.trim())
       if (!['http:', 'https:'].includes(parsed.protocol)) return 'http 또는 https 주소만 입력해주세요.'
@@ -220,7 +236,7 @@ export default function App() {
       if (domain === 'localhost' || domain.endsWith('.local') || /^(127\.|10\.|192\.168\.|169\.254\.)/.test(domain)) return '내부 네트워크 주소는 등록할 수 없습니다.'
       if (sites.some((site) => site.domain === domain)) return '이미 내 우주에 있는 사이트입니다.'
       if (token) {
-        await api.addPending(token, parsed.toString())
+        await api.addCustom(token, parsed.toString())
         await loadAccountData(token)
         return null
       }
@@ -228,7 +244,7 @@ export default function App() {
       setSites((current) => [...current, {
         id, name: domain.split('.')[0].replace(/^./, (letter) => letter.toUpperCase()), domain,
         category: 'Unclassified', visitCount: 0, favorite: false, lastVisitedDaysAgo: 0,
-        position: [0, 0, 0], color: '#8992aa', status: 'PENDING',
+        position: [0, 0, 0], color: '#8992aa', status: 'UNLISTED',
       }])
       return null
     } catch (reason) { return reason instanceof Error ? reason.message : 'https://로 시작하는 올바른 URL을 입력해주세요.' }
@@ -248,6 +264,15 @@ export default function App() {
     }
   }
 
+  const requestOfficialRegistration = async () => {
+    if (!selected || !token || !['UNLISTED', 'PENDING'].includes(selected.status)) return
+    await runBusy(`approval:${selected.id}`, async () => {
+      await api.requestSiteApproval(token, selected.id)
+      updateSelected((site) => ({ ...site, status: 'REVIEW_REQUESTED', reviewStatus: 'REQUESTED' }))
+      setToast({ message: `${selected.name}의 공식 사이트 등록을 신청했습니다.` })
+    })
+  }
+
   const renameConstellation = async (id: string, name: string) => {
     if (token) {
       const result = await runBusy(`rename:${id}`, () => api.renameConstellation(token, id, name))
@@ -258,6 +283,10 @@ export default function App() {
 
   const toggleFavorite = async () => {
     if (!selected) return
+    if (selected.browserFavorite && selected.favorite) {
+      setToast({ message: '브라우저 북마크로 등록된 즐겨찾기입니다. 브라우저에서 북마크를 해제하면 고리도 사라집니다.' })
+      return
+    }
     const favorite = !selected.favorite
     if (busyRef.current.has(`favorite:${selected.id}`)) return
     updateSelected((site) => ({ ...site, favorite }))
@@ -295,6 +324,9 @@ export default function App() {
     await api.revokeExtensionConnections(token)
   }
 
+  if (publicSlug) return <Suspense fallback={<div className="app-loading"><span className="loading-orbit" /><strong>공개 우주를 불러오는 중</strong><small>WEBVERSE GALAXY</small></div>}>
+    {publicUniverse ? <SharedUniverseView universe={publicUniverse} /> : publicUniverseError ? <div className="public-universe-error"><Orbit size={34} /><h1>우주를 찾을 수 없어요.</h1><p>{publicUniverseError}</p><a href="/">WebVerse로 돌아가기</a></div> : <div className="app-loading"><span className="loading-orbit" /><strong>공개 우주를 불러오는 중</strong><small>WEBVERSE GALAXY</small></div>}
+  </Suspense>
   if (booting) return <div className="app-loading"><span className="loading-orbit" /><strong>우주를 불러오는 중</strong><small>WEBVERSE</small></div>
   if (mode === null) return <AuthPage onAuthenticated={authenticate} onGuest={enterGuest} notice={authNotice} />
 
@@ -324,6 +356,7 @@ export default function App() {
         <button className={`nav-button ${page === 'nebula' ? 'active' : ''}`} aria-current={page === 'nebula' ? 'page' : undefined} onClick={() => setPage('nebula')}><Compass size={20} /><span>성운</span></button>
         <button className={`nav-button ${page === 'stats' ? 'active' : ''}`} aria-current={page === 'stats' ? 'page' : undefined} onClick={() => setPage('stats')}><BarChart3 size={20} /><span>통계</span></button>
         <button className={`nav-button ${page === 'constellations' ? 'active' : ''}`} aria-current={page === 'constellations' ? 'page' : undefined} onClick={() => setPage('constellations')}><Sparkles size={20} /><span>별자리</span></button>
+        <button className={`nav-button ${page === 'galaxy' ? 'active' : ''}`} aria-current={page === 'galaxy' ? 'page' : undefined} onClick={() => setPage('galaxy')} disabled={!token}><Telescope size={20} /><span>은하</span></button>
       </nav>
 
       <Suspense fallback={<PageFallback />}>{page === 'universe' ? <><section className="universe-stage">
@@ -376,19 +409,29 @@ export default function App() {
               aria-label="즐겨찾기"
             ><Heart size={19} fill={selected.favorite ? 'currentColor' : 'none'} /></button>
           </div>
+          {token && selected.status !== 'APPROVED' && (
+            <button
+              className="approval-request-button"
+              disabled={!['UNLISTED', 'PENDING'].includes(selected.status) || busyIds.has(`approval:${selected.id}`)}
+              onClick={requestOfficialRegistration}
+            >
+              <Send size={14} /> {busyIds.has(`approval:${selected.id}`) ? '신청 전송 중...' : selected.status === 'REVIEW_REQUESTED' ? '공식 등록 검토 중' : selected.status === 'REJECTED_PRIVATE' ? '공식 등록 거절됨' : '공식 사이트 등록 신청'}
+            </button>
+          )}
           <button className="delete-site-button" disabled={busyIds.has(`delete:${selected.id}`)} onClick={removeSelectedSite}><Trash2 size={15} /> 내 우주에서 삭제</button>
           <p className="visit-note">WebVerse에서 사이트를 열 때 방문 횟수가 기록됩니다.</p>
         </aside>
       )}</> : page === 'nebula' ? <NebulaPage
         discoveredIds={new Set(sites.map((site) => site.id))}
         onDiscover={discoverSite}
-        onAddUrl={addPendingUrl}
+        onAddUrl={addCustomUrl}
         catalog={catalog}
         busyIds={busyIds}
         onBrowse={mode === 'account' ? browseCatalog : undefined}
       /> : page === 'stats' ? <StatsPage sites={sites} /> : page === 'constellations'
         ? <ConstellationsPage constellations={constellations} onRename={renameConstellation} />
-        : <SettingsPage user={user} onLogin={handleSessionButton} onUpdateNickname={updateNickname} onChangePassword={changePassword} onDeleteAccount={deleteAccount} onGetExtensionStatus={getExtensionStatus} onCreateExtensionPairing={createExtensionPairing} onRevokeExtensionConnections={revokeExtensionConnections} />}</Suspense>
+        : page === 'galaxy' && token ? <GalaxyPage token={token} onError={showError} />
+          : <SettingsPage user={user} onLogin={handleSessionButton} onUpdateNickname={updateNickname} onChangePassword={changePassword} onDeleteAccount={deleteAccount} onGetExtensionStatus={getExtensionStatus} onCreateExtensionPairing={createExtensionPairing} onRevokeExtensionConnections={revokeExtensionConnections} onGetGalaxyProfile={() => api.galaxyProfile(token!)} onUpdateGalaxyProfile={(isPublic) => api.updateGalaxyProfile(token!, isPublic)} />}</Suspense>
       {dataLoading && <div className="data-loading"><span className="loading-orbit" /><p>우주 데이터를 동기화하는 중...</p></div>}
       {toast && <div className={`app-toast ${toast.error ? 'error' : ''}`} role={toast.error ? 'alert' : 'status'} aria-live="polite"><span>{toast.error ? '!' : '✓'}</span>{toast.message}<button aria-label="알림 닫기" onClick={() => setToast(null)}><X size={13} /></button></div>}
       {showLogin && <div className="auth-modal-layer" role="dialog" aria-modal="true" aria-label="로그인">
@@ -415,7 +458,7 @@ function mapUserSite(entry: ApiUserSite): Site {
   const daysAgo = Math.max(0, Math.floor((Date.now() - lastVisit) / 86_400_000))
   return {
     id: entry.site.id, name: entry.site.name, domain: entry.site.domain,
-    category: categoryOf(entry.site), visitCount: entry.visitCount, favorite: entry.favorite,
+    category: categoryOf(entry.site), visitCount: entry.visitCount, favorite: entry.favorite, browserFavorite: entry.browserFavorite,
     lastVisitedDaysAgo: daysAgo, position: [entry.positionX, entry.positionY, entry.positionZ],
     color: entry.site.category?.color ?? entry.site.themeColor,
     status: entry.site.status as Site['status'],
@@ -429,7 +472,7 @@ function siteStatusLabel(status: Site['status']) {
   if (status === 'APPROVED') return '공식 사이트'
   if (status === 'REVIEW_REQUESTED') return '관리자 검토 중'
   if (status === 'REJECTED_PRIVATE') return '등록 거절'
-  return '신청 접수'
+  return '비공식 사이트'
 }
 
 function mapCatalogSite(site: ApiSite): CatalogSite {

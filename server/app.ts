@@ -15,6 +15,7 @@ import { createRateLimiter } from './lib/rateLimit.js'
 import { securityHeaders } from './lib/security.js'
 import { extensionRouter } from './routes/extension.js'
 import { adminRouter } from './routes/admin.js'
+import { galaxyRouter } from './routes/galaxy.js'
 
 export function createApp() {
   const app = express()
@@ -42,7 +43,7 @@ export function createApp() {
     origin: (origin, callback) => callback(null, !origin || allowedOrigins.includes(origin)),
     credentials: false,
   }))
-  app.use(express.json({ limit: '64kb' }))
+  app.use(express.json({ limit: '256kb' }))
   app.use('/api', createRateLimiter({
     windowMs: 5 * 60_000, max: 300, keyPrefix: 'api',
     message: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
@@ -62,6 +63,7 @@ export function createApp() {
   app.use('/api/constellations', constellationsRouter)
   app.use('/api/users', usersRouter)
   app.use('/api/extension', extensionRouter)
+  app.use('/api/galaxy', galaxyRouter)
   app.use('/api/admin', adminRouter)
   app.use((request, response) => response.status(404).json({ message: '요청한 API를 찾을 수 없습니다.', requestId: request.requestId }))
 

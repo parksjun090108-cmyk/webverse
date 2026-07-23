@@ -9,19 +9,29 @@ datasource db {
 }
 
 model User {
-  id                String             @id @default(cuid())
-  nickname          String
-  email             String             @unique
-  passwordHash      String
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  userSites         UserSite[]
-  histories         History[]
-  discoveries       SiteDiscovery[]
-  constellations    Constellation[]
-  createdSites      Site[]             @relation("CreatedSites")
-  extensionPairing  ExtensionPairing?
-  extensionSessions ExtensionSession[]
+  id                      String             @id @default(cuid())
+  nickname                String
+  email                   String             @unique
+  passwordHash            String
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+  userSites               UserSite[]
+  histories               History[]
+  discoveries             SiteDiscovery[]
+  constellations          Constellation[]
+  createdSites            Site[]             @relation("CreatedSites")
+  extensionPairing        ExtensionPairing?
+  extensionSessions       ExtensionSession[]
+  initialImportAt         DateTime?
+  universeVisibility      String             @default("PRIVATE")
+  publicSlug              String?            @unique
+  universePublishedAt     DateTime?
+  universeHiddenAt        DateTime?
+  universeHiddenReason    String?
+  universeReportsMade     UniverseReport[]   @relation("UniverseReportReporter")
+  universeReportsReceived UniverseReport[]   @relation("UniverseReportTarget")
+  universeBlocksMade      UniverseBlock[]    @relation("UniverseBlockOwner")
+  universeBlocksReceived  UniverseBlock[]    @relation("UniverseBlockTarget")
 }
 
 model Admin {
@@ -34,6 +44,7 @@ model Admin {
   updatedAt        DateTime          @updatedAt
   approvalRequests ApprovalRequest[]
   auditLogs        AdminAuditLog[]
+  universeReports  UniverseReport[]
 }
 
 model AdminAuditLog {
@@ -69,7 +80,7 @@ model Site {
   faviconUrl             String?
   description            String?
   themeColor             String              @default("#8992aa")
-  status                 String              @default("PENDING")
+  status                 String              @default("UNLISTED")
   verified               Boolean             @default(false)
   categoryId             String?
   category               Category?           @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -90,17 +101,18 @@ model Site {
 }
 
 model UserSite {
-  userId       String
-  siteId       String
-  visitCount   Int      @default(0)
-  favorite     Boolean  @default(false)
-  positionX    Float    @default(0)
-  positionY    Float    @default(0)
-  positionZ    Float    @default(0)
-  lastVisit    DateTime @default(now())
-  discoveredAt DateTime @default(now())
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  site         Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  userId          String
+  siteId          String
+  visitCount      Int      @default(0)
+  favorite        Boolean  @default(false)
+  browserFavorite Boolean  @default(false)
+  positionX       Float    @default(0)
+  positionY       Float    @default(0)
+  positionZ       Float    @default(0)
+  lastVisit       DateTime @default(now())
+  discoveredAt    DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site            Site     @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
   @@id([userId, siteId])
   @@index([userId, lastVisit])
@@ -220,4 +232,35 @@ model ExtensionVisitEvent {
   session   ExtensionSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
 
   @@index([sessionId, visitedAt])
+}
+
+model UniverseReport {
+  id             String    @id @default(cuid())
+  reporterUserId String
+  targetUserId   String
+  reason         String
+  details        String?
+  status         String    @default("OPEN")
+  createdAt      DateTime  @default(now())
+  resolvedAt     DateTime?
+  resolvedById   String?
+  reporter       User      @relation("UniverseReportReporter", fields: [reporterUserId], references: [id], onDelete: Cascade)
+  target         User      @relation("UniverseReportTarget", fields: [targetUserId], references: [id], onDelete: Cascade)
+  resolvedBy     Admin?    @relation(fields: [resolvedById], references: [id], onDelete: SetNull)
+
+  @@unique([reporterUserId, targetUserId])
+  @@index([status, createdAt])
+  @@index([targetUserId])
+  @@index([resolvedById])
+}
+
+model UniverseBlock {
+  userId        String
+  blockedUserId String
+  createdAt     DateTime @default(now())
+  user          User     @relation("UniverseBlockOwner", fields: [userId], references: [id], onDelete: Cascade)
+  blockedUser   User     @relation("UniverseBlockTarget", fields: [blockedUserId], references: [id], onDelete: Cascade)
+
+  @@id([userId, blockedUserId])
+  @@index([blockedUserId])
 }

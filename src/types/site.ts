@@ -15,7 +15,7 @@ export type Category =
   | 'Entertainment'
   | 'Unclassified'
 
-export type SiteStatus = 'APPROVED' | 'PENDING' | 'REVIEW_REQUESTED' | 'REJECTED_PRIVATE'
+export type SiteStatus = 'APPROVED' | 'UNLISTED' | 'PENDING' | 'REVIEW_REQUESTED' | 'REJECTED_PRIVATE'
 
 export type Site = {
   id: string
@@ -24,6 +24,7 @@ export type Site = {
   category: Category
   visitCount: number
   favorite: boolean
+  browserFavorite?: boolean
   lastVisitedDaysAgo: number
   position: [number, number, number]
   color: string
@@ -31,6 +32,7 @@ export type Site = {
   faviconUrl?: string | null
   reviewStatus?: 'REQUESTED' | 'APPROVED' | 'REJECTED' | null
   rejectionReason?: string | null
+  anonymous?: boolean
 }
 
 export type CelestialStage =

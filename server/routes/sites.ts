@@ -8,10 +8,15 @@ import { createRateLimiter } from '../lib/rateLimit.js'
 
 export const sitesRouter = Router()
 sitesRouter.use(requireAuth)
-const pendingSiteLimiter = createRateLimiter({
-  windowMs: 60 * 60_000, max: 10, keyPrefix: 'pending-site',
+const customSiteLimiter = createRateLimiter({
+  windowMs: 60 * 60_000, max: 10, keyPrefix: 'custom-site',
   key: (request) => request.userId ?? request.ip ?? 'unknown',
   message: '사이트 분석 요청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
+})
+const approvalRequestLimiter = createRateLimiter({
+  windowMs: 60 * 60_000, max: 10, keyPrefix: 'site-approval-request',
+  key: (request) => request.userId ?? request.ip ?? 'unknown',
+  message: '공식 사이트 등록 신청이 너무 많습니다. 잠시 후 다시 시도해주세요.',
 })
 
 sitesRouter.get('/', async (request, response, next) => {
@@ -48,11 +53,16 @@ sitesRouter.get('/mine', async (request, response, next) => {
       },
       orderBy: [{ favorite: 'desc' }, { lastVisit: 'desc' }],
     })
-    response.json({ userSites })
+    response.json({
+      userSites: userSites.map((entry) => ({
+        ...entry,
+        favorite: entry.favorite || entry.browserFavorite,
+      })),
+    })
   } catch (error) { next(error) }
 })
 
-sitesRouter.post('/pending', pendingSiteLimiter, async (request, response, next) => {
+sitesRouter.post('/custom', customSiteLimiter, async (request, response, next) => {
   try {
     const userId = request.userId!
     const input = z.object({ url: z.string().url() }).parse(request.body)
@@ -64,7 +74,7 @@ sitesRouter.post('/pending', pendingSiteLimiter, async (request, response, next)
       create: {
         name: metadata.title, domain: metadata.domain, normalizedUrl: metadata.url,
         description: metadata.description, faviconUrl: metadata.faviconUrl,
-        themeColor: metadata.themeColor ?? '#8992aa', createdById: userId, status: 'PENDING',
+        themeColor: metadata.themeColor ?? '#8992aa', createdById: userId, status: 'UNLISTED',
       },
     })
     await discover(userId, site.id)
@@ -79,6 +89,34 @@ sitesRouter.post('/:siteId/discover', async (request, response, next) => {
     if (site.status === 'REJECTED_PRIVATE') return response.status(404).json({ message: '발견할 수 없는 사이트입니다.' })
     await discover(userId, site.id)
     response.status(201).json({ site: await siteWithDiscoveryCount(site.id) })
+  } catch (error) { next(error) }
+})
+
+sitesRouter.post('/:siteId/approval-request', approvalRequestLimiter, async (request, response, next) => {
+  try {
+    const userId = request.userId!
+    const siteId = z.string().min(1).parse(request.params.siteId)
+    const site = await prisma.site.findFirst({
+      where: { id: siteId, userSites: { some: { userId } } },
+      include: { approvalRequest: true },
+    })
+    if (!site) return response.status(404).json({ message: '내 우주에 있는 사이트만 공식 등록을 신청할 수 있습니다.' })
+    if (site.status === 'APPROVED') return response.status(409).json({ message: '이미 공식 사이트입니다.' })
+    if (site.approvalRequest?.status === 'REQUESTED') {
+      return response.json({ site: await siteWithDiscoveryCount(siteId), request: site.approvalRequest })
+    }
+    if (site.approvalRequest?.status === 'REJECTED') {
+      return response.status(409).json({ message: '이미 검토가 완료된 사이트입니다. 거절 사유를 확인해주세요.' })
+    }
+
+    await prisma.$transaction([
+      prisma.site.update({ where: { id: siteId }, data: { status: 'REVIEW_REQUESTED' } }),
+      prisma.approvalRequest.create({ data: { siteId } }),
+    ])
+    response.status(201).json({
+      site: await siteWithDiscoveryCount(siteId),
+      request: await prisma.approvalRequest.findUniqueOrThrow({ where: { siteId } }),
+    })
   } catch (error) { next(error) }
 })
 
@@ -132,11 +170,6 @@ async function discover(userId: string, siteId: string) {
     })
     const historyExists = await database.history.findFirst({ where: { userId, siteId, action: 'DISCOVER' } })
     if (!historyExists) await database.history.create({ data: { userId, siteId, action: 'DISCOVER' } })
-    const site = await database.site.findUniqueOrThrow({ where: { id: siteId } })
-    if (site.status === 'PENDING') {
-      await database.site.update({ where: { id: siteId }, data: { status: 'REVIEW_REQUESTED' } })
-      await database.approvalRequest.upsert({ where: { siteId }, update: {}, create: { siteId } })
-    }
   })
 }
 

@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { KeyRound, Link2, LogIn, PlugZap, RefreshCw, Save, Settings2, ShieldCheck, Trash2, Unplug, UserRound } from 'lucide-react'
-import type { ExtensionStatus, SessionUser } from '../../lib/api'
+import { Copy, Eye, EyeOff, Globe2, KeyRound, Link2, LogIn, PlugZap, RefreshCw, Save, Settings2, ShieldCheck, Trash2, Unplug, UserRound } from 'lucide-react'
+import type { ExtensionStatus, GalaxyProfile, SessionUser } from '../../lib/api'
 
 type Props = {
   user: SessionUser | null
@@ -11,9 +11,11 @@ type Props = {
   onGetExtensionStatus: () => Promise<ExtensionStatus>
   onCreateExtensionPairing: () => Promise<{ code: string; expiresAt: string }>
   onRevokeExtensionConnections: () => Promise<void>
+  onGetGalaxyProfile: () => Promise<{ profile: GalaxyProfile }>
+  onUpdateGalaxyProfile: (isPublic: boolean) => Promise<{ profile: GalaxyProfile }>
 }
 
-export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword, onDeleteAccount, onGetExtensionStatus, onCreateExtensionPairing, onRevokeExtensionConnections }: Props) {
+export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword, onDeleteAccount, onGetExtensionStatus, onCreateExtensionPairing, onRevokeExtensionConnections, onGetGalaxyProfile, onUpdateGalaxyProfile }: Props) {
   const [nickname, setNickname] = useState(user?.nickname ?? '')
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -24,6 +26,7 @@ export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword
   const [busy, setBusy] = useState(false)
   const [extensionStatus, setExtensionStatus] = useState<ExtensionStatus | null>(null)
   const [pairing, setPairing] = useState<{ code: string; expiresAt: string } | null>(null)
+  const [galaxyProfile, setGalaxyProfile] = useState<GalaxyProfile | null>(null)
 
   useEffect(() => {
     setNickname(user?.nickname ?? '')
@@ -32,7 +35,7 @@ export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword
   }, [user])
   useEffect(() => {
     if (!user) return
-    void onGetExtensionStatus().then(setExtensionStatus).catch(() => undefined)
+    void Promise.all([onGetExtensionStatus().then(setExtensionStatus), onGetGalaxyProfile().then((result) => setGalaxyProfile(result.profile))]).catch(() => undefined)
   }, [user?.id])
   const run = async (action: () => Promise<void>, success: string) => {
     setBusy(true); setError(''); setMessage('')
@@ -52,6 +55,16 @@ export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword
   }
   const createPairing = () => void run(async () => { setPairing(await onCreateExtensionPairing()) }, '10분 동안 사용할 수 있는 연결 코드를 만들었습니다.')
   const revokeConnections = () => void run(async () => { await onRevokeExtensionConnections(); setPairing(null); setExtensionStatus(await onGetExtensionStatus()) }, '확장 프로그램 연결을 모두 해제했습니다.')
+  const toggleGalaxy = () => {
+    const nextPublic = !galaxyProfile?.public
+    if (nextPublic && !window.confirm('내 우주를 공개할까요?\n\n사이트 이름, 천체 성장 단계와 활동 밝기, 즐겨찾기 고리, 별자리가 다른 사용자에게 공개됩니다. 정확한 방문 횟수와 날짜, 이메일은 공개되지 않습니다.')) return
+    void run(async () => { setGalaxyProfile((await onUpdateGalaxyProfile(nextPublic)).profile) }, nextPublic ? '내 우주를 은하에 공개했습니다.' : '내 우주를 비공개로 전환했습니다.')
+  }
+  const copyPublicLink = async () => {
+    if (!galaxyProfile?.slug) return
+    await navigator.clipboard.writeText(`${window.location.origin}/universe/${galaxyProfile.slug}`)
+    setMessage('공개 우주 링크를 복사했습니다.'); setError('')
+  }
 
   return <section className="settings-page"><div className="settings-content">
     <p className="settings-kicker"><Settings2 size={13} /> UNIVERSE CONTROL</p><h1>우주 설정</h1><p className="settings-intro">계정과 개인 데이터를 관리하세요.</p>
@@ -78,6 +91,14 @@ export function SettingsPage({ user, onLogin, onUpdateNickname, onChangePassword
         {pairing && <div className="pairing-code"><span>확장 프로그램에 입력</span><strong>{pairing.code}</strong><small>{new Date(pairing.expiresAt).toLocaleTimeString()}까지 유효</small></div>}
         <div className="extension-actions"><button className="settings-save" disabled={busy} onClick={createPairing}>{pairing ? <RefreshCw size={14} /> : <Link2 size={14} />}{pairing ? '새 코드 만들기' : '연결 코드 만들기'}</button>{extensionStatus?.connected && <button className="disconnect-extension" disabled={busy} onClick={revokeConnections}><Unplug size={14} /> 연결 해제</button>}</div>
         <p className="extension-privacy">전체 URL이나 검색어가 아닌 도메인과 방문 시각만 동기화합니다.</p>
+      </article>
+
+      <article className="settings-card galaxy-settings-card glass-panel">
+        <div className="settings-card-title"><span><Globe2 size={18} /></span><div><h2>내 우주 공개</h2><p>은하에서 다른 탐험가가 내 우주를 볼 수 있게 합니다.</p></div></div>
+        <div className={`galaxy-visibility ${galaxyProfile?.public ? 'public' : ''}`}><i />{galaxyProfile?.restricted ? '관리자에 의해 공개 제한됨' : galaxyProfile?.public ? '현재 공개 중' : '현재 비공개'}</div>
+        <div className="galaxy-disclosure"><strong>공개되는 정보</strong><p>사이트 이름과 카테고리, 천체 성장 단계와 활동 밝기, 즐겨찾기 고리, 별자리가 표시됩니다.</p><small>정확한 방문 횟수·방문 날짜·이메일은 공개되지 않으며 비공식 사이트는 미확인 천체로 익명화됩니다.</small></div>
+        {galaxyProfile?.restricted && <p className="galaxy-restriction">{galaxyProfile.restrictionReason}</p>}
+        <div className="galaxy-settings-actions"><button className="settings-save" disabled={busy || !galaxyProfile || galaxyProfile.restricted} onClick={toggleGalaxy}>{galaxyProfile?.public ? <EyeOff size={14} /> : <Eye size={14} />}{galaxyProfile?.public ? '비공개로 전환' : '내 우주 공개하기'}</button>{galaxyProfile?.public && <button className="copy-galaxy-link" onClick={copyPublicLink}><Copy size={14} /> 링크 복사</button>}</div>
       </article>
 
       <article className="settings-card danger-card glass-panel">

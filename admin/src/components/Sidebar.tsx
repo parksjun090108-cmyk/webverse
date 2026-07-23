@@ -1,7 +1,7 @@
-import { ClipboardCheck, History, LockKeyhole, LogOut, Orbit } from 'lucide-react'
+import { ClipboardCheck, History, LockKeyhole, LogOut, Orbit, ShieldAlert } from 'lucide-react'
 import type { Admin, Overview } from '../api'
 
-export type AdminView = 'requests' | 'history' | 'security'
+export type AdminView = 'requests' | 'reports' | 'history' | 'security'
 
 type Props = {
   view: AdminView
@@ -17,6 +17,7 @@ export function Sidebar({ view, admin, overview, onChange, onLogout }: Props) {
     <nav>
       <p>MANAGEMENT</p>
       <button className={view === 'requests' ? 'active' : ''} onClick={() => onChange('requests')}><ClipboardCheck size={18} /><span>등록 요청</span>{Boolean(overview?.requests.requested) && <b>{overview!.requests.requested}</b>}</button>
+      <button className={view === 'reports' ? 'active' : ''} onClick={() => onChange('reports')}><ShieldAlert size={18} /><span>우주 신고</span>{Boolean(overview?.universeReports.open) && <b>{overview!.universeReports.open}</b>}</button>
       <button className={view === 'history' ? 'active' : ''} onClick={() => onChange('history')}><History size={18} /><span>처리 기록</span></button>
       <p>ACCOUNT</p>
       <button className={view === 'security' ? 'active' : ''} onClick={() => onChange('security')}><LockKeyhole size={18} /><span>보안 설정</span></button>

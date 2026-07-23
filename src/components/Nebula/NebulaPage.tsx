@@ -74,7 +74,7 @@ export function NebulaPage({ discoveredIds, onDiscover, onAddUrl, catalog, busyI
     setAdding(true)
     try {
       const result = await onAddUrl(url)
-      setMessage(result ?? '사이트 정보를 확인해 Pending으로 등록했습니다.')
+      setMessage(result ?? '사이트를 내 우주에 추가했습니다.')
       if (!result) setUrl('')
     } finally { setAdding(false) }
   }
@@ -122,7 +122,7 @@ export function NebulaPage({ discoveredIds, onDiscover, onAddUrl, catalog, busyI
 
         <div className="url-discovery glass-panel">
           <div className="url-icon"><Globe2 size={22} /></div>
-          <div><h3>찾는 사이트가 없나요?</h3><p>URL을 입력하면 정보를 확인한 뒤 Pending 사이트로 등록합니다.</p></div>
+          <div><h3>찾는 사이트가 없나요?</h3><p>URL을 입력하면 정보를 확인한 뒤 내 우주에 추가합니다.</p></div>
           <label><Link2 size={16} /><input value={url} disabled={adding} onChange={(event) => { setUrl(event.target.value); setMessage('') }} placeholder="https://example.com" /><button disabled={adding || !url.trim()} onClick={submitUrl}>{adding ? '분석 중' : '추가'}</button></label>
           {message && <p className="url-message" role="status">{message}</p>}
         </div>

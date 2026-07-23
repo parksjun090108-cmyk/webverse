@@ -21,6 +21,7 @@ Vercel 환경변수:
 
 ```text
 VITE_API_URL=https://YOUR-RENDER-SERVICE.onrender.com/api/admin
+VITE_WEB_URL=https://YOUR-WEBVERSE.vercel.app
 ```
 
 Render의 `WEB_ORIGIN`에는 WebVerse와 관리자 사이트의 정확한 주소를 쉼표로 연결합니다. 주소 끝에는 `/`를 붙이지 않습니다.

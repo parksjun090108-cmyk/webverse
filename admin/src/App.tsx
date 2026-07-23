@@ -6,6 +6,7 @@ import { Sidebar, type AdminView } from './components/Sidebar'
 import { RequestsPage } from './components/RequestsPage'
 import { AuditPage } from './components/AuditPage'
 import { SecurityPage } from './components/SecurityPage'
+import { UniverseReportsPage } from './components/UniverseReportsPage'
 
 const TOKEN_KEY = 'webverse-admin-token'
 
@@ -28,6 +29,7 @@ export default function App() {
   }, [])
 
   useEffect(() => { adminApi.onUnauthorized(logout); return () => adminApi.onUnauthorized(null) }, [logout])
+  useEffect(() => { void adminApi.wake() }, [])
   useEffect(() => {
     if (!token) { setBooting(false); return }
     void Promise.all([adminApi.me(token), loadShared(token)])
@@ -50,6 +52,7 @@ export default function App() {
     <Sidebar view={view} admin={admin} overview={overview} onChange={setView} onLogout={logout} />
     <div className="admin-content">
       {view === 'requests' ? <RequestsPage token={token} overview={overview} categories={categories} onDataChanged={() => loadShared(token)} />
+        : view === 'reports' ? <UniverseReportsPage token={token} overview={overview} onDataChanged={() => loadShared(token)} />
         : view === 'history' ? <AuditPage token={token} />
           : <SecurityPage token={token} admin={admin} />}
     </div>

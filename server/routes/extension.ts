@@ -12,6 +12,15 @@ const CODE_ALPHABET = '23456789ABCDEFGHJKLMNPQRSTUVWXYZ'
 
 const connectLimiter = createRateLimiter({ windowMs: 15 * 60_000, max: 12, keyPrefix: 'extension-connect', message: '연결 시도가 너무 많습니다. 잠시 후 다시 시도해주세요.' })
 const visitLimiter = createRateLimiter({ windowMs: 60_000, max: 12, keyPrefix: 'extension-visits', key: (request) => request.extensionUserId ?? request.ip ?? 'unknown', message: '방문 동기화 요청이 너무 많습니다.' })
+const importLimiter = createRateLimiter({ windowMs: 60 * 60_000, max: 3, keyPrefix: 'extension-import', key: (request) => request.extensionUserId ?? request.ip ?? 'unknown', message: '첫 우주 가져오기 요청이 너무 많습니다.' })
+
+const importedSiteSchema = z.object({
+  domain: z.string().trim().toLowerCase().max(253),
+  name: z.string().trim().min(1).max(120),
+  visitCount: z.number().int().min(0).max(1_000_000),
+  lastVisitedAt: z.coerce.date().nullable(),
+  bookmarked: z.boolean(),
+})
 
 extensionRouter.post('/pairing', requireAuth, async (request, response, next) => {
   try {
@@ -100,6 +109,124 @@ extensionRouter.post('/visits', requireExtension, visitLimiter, async (request, 
   } catch (error) { next(error) }
 })
 
+extensionRouter.get('/initial-import/status', requireExtension, async (request, response, next) => {
+  try {
+    const user = await prisma.user.findUniqueOrThrow({
+      where: { id: request.extensionUserId! }, select: { initialImportAt: true },
+    })
+    response.json({ imported: Boolean(user.initialImportAt), importedAt: user.initialImportAt })
+  } catch (error) { next(error) }
+})
+
+extensionRouter.post('/initial-import', requireExtension, importLimiter, async (request, response, next) => {
+  try {
+    const input = z.object({ sites: z.array(importedSiteSchema).min(1).max(1000) }).parse(request.body)
+    const normalized = deduplicateImportedSites(input.sites)
+    if (!normalized.length) return response.status(400).json({ message: '가져올 수 있는 사이트가 없습니다.' })
+    const alreadyImported = await prisma.user.findUniqueOrThrow({
+      where: { id: request.extensionUserId! }, select: { initialImportAt: true },
+    })
+    if (alreadyImported.initialImportAt) {
+      return response.status(409).json({ message: '첫 우주 가져오기는 이미 완료되었습니다.', importedAt: alreadyImported.initialImportAt })
+    }
+
+    const importedAt = new Date()
+    const result = await prisma.$transaction(async (database) => {
+      let added = 0
+      let official = 0
+      let unlisted = 0
+      let bookmarks = 0
+      for (const entry of normalized) {
+        let site = await database.site.findUnique({ where: { domain: entry.domain } })
+        if (!site) {
+          site = await database.site.create({
+            data: {
+              name: entry.name,
+              domain: entry.domain,
+              normalizedUrl: `https://${entry.domain}`,
+              faviconUrl: `https://${entry.domain}/favicon.ico`,
+              status: 'UNLISTED',
+              createdById: request.extensionUserId!,
+            },
+          })
+        }
+        const current = await database.userSite.findUnique({
+          where: { userId_siteId: { userId: request.extensionUserId!, siteId: site.id } },
+        })
+        const lastVisit = entry.lastVisitedAt ?? current?.lastVisit ?? importedAt
+        await database.siteDiscovery.upsert({
+          where: { userId_siteId: { userId: request.extensionUserId!, siteId: site.id } },
+          update: {}, create: { userId: request.extensionUserId!, siteId: site.id },
+        })
+        await database.userSite.upsert({
+          where: { userId_siteId: { userId: request.extensionUserId!, siteId: site.id } },
+          update: {
+            visitCount: Math.max(current?.visitCount ?? 0, entry.visitCount),
+            browserFavorite: Boolean(current?.browserFavorite || entry.bookmarked),
+            lastVisit: current?.lastVisit && current.lastVisit > lastVisit ? current.lastVisit : lastVisit,
+          },
+          create: {
+            userId: request.extensionUserId!, siteId: site.id, visitCount: entry.visitCount,
+            browserFavorite: entry.bookmarked, lastVisit,
+          },
+        })
+        const discoveryHistory = await database.history.findFirst({
+          where: { userId: request.extensionUserId!, siteId: site.id, action: 'DISCOVER' }, select: { id: true },
+        })
+        if (!discoveryHistory) await database.history.create({ data: { userId: request.extensionUserId!, siteId: site.id, action: 'DISCOVER' } })
+        added += current ? 0 : 1
+        official += site.status === 'APPROVED' ? 1 : 0
+        unlisted += site.status === 'APPROVED' ? 0 : 1
+        bookmarks += entry.bookmarked ? 1 : 0
+      }
+      await database.user.update({ where: { id: request.extensionUserId! }, data: { initialImportAt: importedAt } })
+      return { added, official, unlisted, bookmarks }
+    }, { maxWait: 5_000, timeout: 120_000 })
+    response.status(201).json({ importedAt, selected: normalized.length, ...result })
+  } catch (error) { next(error) }
+})
+
+extensionRouter.post('/bookmarks', requireExtension, async (request, response, next) => {
+  try {
+    const input = z.object({ events: z.array(z.object({
+      domain: z.string().trim().toLowerCase().max(253),
+      name: z.string().trim().min(1).max(120),
+      bookmarked: z.boolean(),
+    })).min(1).max(50) }).parse(request.body)
+    let updated = 0
+    for (const entry of input.events) {
+      const domain = normalizeDomain(entry.domain)
+      if (!domain) continue
+      let site = await prisma.site.findUnique({ where: { domain } })
+      if (!site && entry.bookmarked) {
+        site = await prisma.site.create({
+          data: {
+            name: entry.name, domain, normalizedUrl: `https://${domain}`,
+            faviconUrl: `https://${domain}/favicon.ico`, status: 'UNLISTED', createdById: request.extensionUserId!,
+          },
+        })
+      }
+      if (!site) continue
+      if (entry.bookmarked) {
+        await prisma.$transaction([
+          prisma.siteDiscovery.upsert({ where: { userId_siteId: { userId: request.extensionUserId!, siteId: site.id } }, update: {}, create: { userId: request.extensionUserId!, siteId: site.id } }),
+          prisma.userSite.upsert({
+            where: { userId_siteId: { userId: request.extensionUserId!, siteId: site.id } },
+            update: { browserFavorite: true }, create: { userId: request.extensionUserId!, siteId: site.id, browserFavorite: true },
+          }),
+        ])
+      } else {
+        await prisma.userSite.updateMany({
+          where: { userId: request.extensionUserId!, siteId: site.id }, data: { browserFavorite: false },
+        })
+      }
+      updated += 1
+    }
+    await prisma.extensionSession.update({ where: { id: request.extensionSessionId! }, data: { lastSeenAt: new Date() } })
+    response.json({ updated })
+  } catch (error) { next(error) }
+})
+
 extensionRouter.delete('/session', requireExtension, async (request, response, next) => {
   try {
     await prisma.extensionSession.update({ where: { id: request.extensionSessionId! }, data: { revokedAt: new Date() } })
@@ -122,4 +249,21 @@ function normalizeDomain(value: string) {
   const domain = value.replace(/^www\./, '').replace(/\.$/, '')
   if (!/^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) return null
   return domain
+}
+
+function deduplicateImportedSites(entries: z.infer<typeof importedSiteSchema>[]) {
+  const byDomain = new Map<string, z.infer<typeof importedSiteSchema>>()
+  for (const entry of entries) {
+    const domain = normalizeDomain(entry.domain)
+    if (!domain) continue
+    const current = byDomain.get(domain)
+    byDomain.set(domain, {
+      domain,
+      name: current?.name || entry.name,
+      visitCount: Math.max(current?.visitCount ?? 0, entry.visitCount),
+      lastVisitedAt: !current?.lastVisitedAt || (entry.lastVisitedAt && entry.lastVisitedAt > current.lastVisitedAt) ? entry.lastVisitedAt : current.lastVisitedAt,
+      bookmarked: Boolean(current?.bookmarked || entry.bookmarked),
+    })
+  }
+  return [...byDomain.values()]
 }

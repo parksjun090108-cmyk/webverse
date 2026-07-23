@@ -10,6 +10,16 @@
       <input id="code" maxlength="9" placeholder="ABCD-EFGH" autocomplete="off">
       <button id="connect">연결하기</button>
     </section>
+    <section id="importPanel" hidden>
+      <h1>첫 우주 만들기</h1>
+      <p>최근 30일 방문 상위 20개와 북마크를 불러왔어요. 제외할 사이트는 체크를 해제하세요.</p>
+      <div id="scanState" class="scan-state"><span class="spinner"></span> 브라우저 기록 분석 중...</div>
+      <div id="importControls" hidden>
+        <label class="select-all"><input id="selectAll" type="checkbox" checked><span>전체 선택</span><strong id="selectedCount">0</strong></label>
+        <div id="candidateList" class="candidate-list"></div>
+        <button id="importSelected">선택한 사이트로 우주 만들기</button>
+      </div>
+    </section>
     <section id="syncPanel" hidden>
       <div class="metric"><span>오늘 기록</span><strong id="syncedToday">0</strong></div>
       <div class="metric"><span>전송 대기</span><strong id="pending">0</strong></div>
@@ -20,6 +30,6 @@
     <details><summary>개발 서버 설정</summary><label>API 주소<input id="apiUrl" value="http://localhost:4000/api"></label><button id="saveApi" class="ghost">주소 저장</button></details>
     <p id="message" role="status"></p>
   </main>
-  <footer>전체 URL·검색어·페이지 제목은 저장하지 않습니다.</footer>
+  <footer>선택한 도메인·북마크 이름·횟수·최근 방문일만 전송합니다.</footer>
   <script src="popup.js"></script>
 </body></html>

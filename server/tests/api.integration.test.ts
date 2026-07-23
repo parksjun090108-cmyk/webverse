@@ -5,12 +5,14 @@ import { createApp } from '../app.js'
 import { prisma } from '../lib/prisma.js'
 
 const email = `integration-${Date.now()}@webverse.test`
+const importedDomain = `browser-import-${Date.now()}.example.com`
 const originalPassword = 'Test-password-123!'
 const newPassword = 'Changed-password-456!'
 const server = createApp().listen(0)
 const port = (server.address() as AddressInfo).port
 const baseUrl = `http://127.0.0.1:${port}/api`
 let token = ''
+let importedSiteId = ''
 
 async function request(path: string, options: RequestInit = {}) {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -117,6 +119,37 @@ try {
   })
   assert.equal(extensionConnection.status, 201)
   const extensionToken = extensionConnection.body.token as string
+  const importStatus = await request('/extension/initial-import/status', { headers: { Authorization: `Extension ${extensionToken}` } })
+  assert.equal(importStatus.status, 200)
+  assert.equal(importStatus.body.imported, false)
+  const initialImport = await request('/extension/initial-import', {
+    method: 'POST', headers: { Authorization: `Extension ${extensionToken}` },
+    body: JSON.stringify({ sites: [
+      { domain: targetSite.domain, name: targetSite.name, visitCount: 0, lastVisitedAt: null, bookmarked: true },
+      { domain: importedDomain, name: 'Imported Bookmark', visitCount: 2, lastVisitedAt: new Date().toISOString(), bookmarked: true },
+    ] }),
+  })
+  assert.equal(initialImport.status, 201)
+  assert.equal(initialImport.body.selected, 2)
+  assert.equal(initialImport.body.added, 1)
+  importedSiteId = (await prisma.site.findUniqueOrThrow({ where: { domain: importedDomain } })).id
+  assert.equal((await prisma.site.findUniqueOrThrow({ where: { id: importedSiteId } })).status, 'UNLISTED')
+  assert.equal(await prisma.approvalRequest.findUnique({ where: { siteId: importedSiteId } }), null)
+  const importedUniverse = await request('/sites/mine')
+  const importedBookmark = importedUniverse.body.userSites.find((entry: { site: { id: string } }) => entry.site.id === importedSiteId)
+  assert.equal(importedBookmark.favorite, true)
+  const duplicateImport = await request('/extension/initial-import', {
+    method: 'POST', headers: { Authorization: `Extension ${extensionToken}` },
+    body: JSON.stringify({ sites: [{ domain: targetSite.domain, name: targetSite.name, visitCount: 0, lastVisitedAt: null, bookmarked: false }] }),
+  })
+  assert.equal(duplicateImport.status, 409)
+  const bookmarkRemoved = await request('/extension/bookmarks', {
+    method: 'POST', headers: { Authorization: `Extension ${extensionToken}` },
+    body: JSON.stringify({ events: [{ domain: importedDomain, name: 'Imported Bookmark', bookmarked: false }] }),
+  })
+  assert.equal(bookmarkRemoved.status, 200)
+  const importedAfterRemoval = (await request('/sites/mine')).body.userSites.find((entry: { site: { id: string } }) => entry.site.id === importedSiteId)
+  assert.equal(importedAfterRemoval.favorite, false)
   const extensionEventId = randomUUID()
   const extensionVisit = await request('/extension/visits', {
     method: 'POST', headers: { Authorization: `Extension ${extensionToken}` },
@@ -181,7 +214,7 @@ try {
   const removedAgain = await request(`/sites/${targetSite.id}`, { method: 'DELETE' })
   assert.equal(removedAgain.status, 404)
   universe = await request('/sites/mine')
-  assert.equal(universe.body.userSites.length, 2)
+  assert.equal(universe.body.userSites.length, 3)
   assert.equal((await request('/constellations')).body.constellations.length, 0)
 
   const deleted = await request('/users/me', { method: 'DELETE', body: JSON.stringify({ password: newPassword }) })
@@ -207,6 +240,7 @@ try {
   console.log('API integration lifecycle passed')
 } finally {
   await prisma.user.deleteMany({ where: { email } })
+  if (importedSiteId) await prisma.site.deleteMany({ where: { id: importedSiteId } })
   await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()))
   await prisma.$disconnect()
 }

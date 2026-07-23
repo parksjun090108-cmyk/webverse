@@ -52,7 +52,7 @@ try {
   userId = user.id
 
   const approvedSite = await prisma.site.create({
-    data: { name: 'Approve Candidate', domain: approvedDomain, normalizedUrl: `https://${approvedDomain}`, status: 'PENDING', createdById: user.id },
+    data: { name: 'Approve Candidate', domain: approvedDomain, normalizedUrl: `https://${approvedDomain}`, status: 'UNLISTED', createdById: user.id },
   })
   approvedSiteId = approvedSite.id
   const discoveryUsers = [user]
@@ -69,11 +69,12 @@ try {
   for (let index = 0; index < discoveryUsers.length; index += 1) {
     const discovered = await userRequest(`/sites/${approvedSite.id}/discover`, createToken(discoveryUsers[index]!.id), { method: 'POST' })
     assert.equal(discovered.status, 201)
-    assert.equal(discovered.body.site.status, 'REVIEW_REQUESTED')
-    if (index === 0) {
-      assert.ok(await prisma.approvalRequest.findUnique({ where: { siteId: approvedSite.id } }))
-    }
+    assert.equal(discovered.body.site.status, 'UNLISTED')
   }
+  assert.equal(await prisma.approvalRequest.findUnique({ where: { siteId: approvedSite.id } }), null)
+  const registrationRequest = await userRequest(`/sites/${approvedSite.id}/approval-request`, createToken(user.id), { method: 'POST' })
+  assert.equal(registrationRequest.status, 201)
+  assert.equal(registrationRequest.body.site.status, 'REVIEW_REQUESTED')
   const approvedRequest = await prisma.approvalRequest.findUniqueOrThrow({ where: { siteId: approvedSite.id } })
   assert.equal(await prisma.siteDiscovery.count({ where: { siteId: approvedSite.id } }), 3)
 
