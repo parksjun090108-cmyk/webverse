@@ -87,14 +87,14 @@ export function SharedUniverseView({ universe, token, onBack, onError, onBlocked
 
   return <section className={`shared-universe ${onBack ? 'embedded' : 'standalone'}`}>
     <UniverseCanvas sites={sites} clusters={[]} constellations={constellations} selectedId={selected?.id ?? null} onSelect={setSelected} onExpandCluster={() => undefined} />
-    <header className="shared-topbar glass-panel">
+    {onBack ? <div className="shared-actions shared-embedded-toolbar glass-panel">
+      <button onClick={onBack} aria-label="은하로 돌아가기"><ArrowLeft size={15} /> 은하로</button>
+      <button onClick={copyLink} aria-label="공개 우주 링크 복사"><Copy size={14} /> {copied ? '복사됨' : '링크 복사'}</button>
+      {token && <><button onClick={() => setReportOpen(true)} aria-label="공개 우주 신고"><ShieldAlert size={14} /> 신고</button><button className="block" onClick={block} aria-label="공개 우주 차단"><Ban size={14} /> 차단</button></>}
+    </div> : <header className="shared-topbar glass-panel">
       <div className="shared-brand"><Orbit size={19} /><div><strong>WEBVERSE</strong><small>PUBLIC UNIVERSE</small></div></div>
-      <div className="shared-actions">
-        {onBack && <button onClick={onBack}><ArrowLeft size={15} /> 은하로</button>}
-        <button onClick={copyLink}><Copy size={14} /> {copied ? '복사됨' : '링크 복사'}</button>
-        {token && <><button onClick={() => setReportOpen(true)}><ShieldAlert size={14} /> 신고</button><button className="block" onClick={block}><Ban size={14} /> 차단</button></>}
-      </div>
-    </header>
+      <div className="shared-actions"><button onClick={copyLink}><Copy size={14} /> {copied ? '복사됨' : '링크 복사'}</button></div>
+    </header>}
     <div className="shared-heading"><p>EXPLORER'S UNIVERSE</p><h1>{universe.nickname}님의 우주</h1><span>{sites.length}개의 천체 · {constellations.length}개의 별자리</span></div>
     <div className="shared-disclosure glass-panel"><Sparkles size={13} /><span>크기는 이용 빈도, 밝기는 최근 활동을 나타냅니다. 정확한 횟수와 날짜는 공개되지 않습니다.</span></div>
     {!token && <a className="shared-cta" href="/">나도 내 우주 만들기 <ChevronRight size={15} /></a>}
